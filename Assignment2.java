@@ -45,25 +45,31 @@ public class Assignment2 {
 
 	public boolean insertPlayer(int id, String playerName, String email, String countryCode) {
 		// check country code's format, must be 3 uppercase characters
-		if (! checkcountrycode(countryCode)) return false;
-		if (existPlayer(id)){
-			System.out.println("Already exist such a player has the same id");
-			return false;
-		}if (connection != null) {
-			System.out.println("You are ready to work with your database!");
-		} else {
-			System.out.println("Failed to make connection!");
+		if (countryCode.length() != 3 || !countryCode.equals(countryCode.toUpperCase())) return false;
+		// check if there already exists same playe's name, email, or countrycode
+		try{
+			PreparedStatement stat = connection.prepareStatement("ELECT * FROM a2.Player WHERE id = ? " +
+			"OR playername = ? OR  email = ?");
+			stat.setInt(1, id);
+			stat.setString(2, playerName);
+			stat.setString(3, email);
+			ResultSet rs = stat.executeQuery();
+			rs.close();
+			stat.close();
+			if (rs.next()) return false;
+		} catch (SQLException e){
+			e.getStackTrace();
 		}
 		try{
-			Statement stat;
+			Statement st;
 			//Create a Statement for executing SQL queries
-			stat = connection.createStatement(); 
+			st = connection.createStatement(); 
 			String query = "INSERT INTO Player " +
                 "(id, playername, emial, country_code) " +
                 "VALUES " +
                 "(%d, '%s', '%s', '%s')";
         	query = String.format(query, id, playerName, email, countryCode);
-       		stat.executeUpdate(query);
+       		st.executeUpdate(query);
         	System.out.println("++ inserted user: " + playerName);
 			return true;
 		} catch (SQLException e) {
@@ -73,35 +79,22 @@ public class Assignment2 {
 	}
 
 
-	public static boolean checkcountrycode(String str) {
-		char ch;
-		if (str.length() != 3) return false;
-		for(int i=0;i < str.length();i++) {
-			ch = str.charAt(i);
-			if (! Character.isUpperCase(ch)) {
-				return false;
-			}
-		}
-		return true;
-	}
-
-
-	public boolean existPlayer(int id){
-		Statement stat;
-		try{
-			stat = connection.createStatement();
-			String query = "SELECT * FROM Player WHERE rid=%d";
-			query = String.format(query, id);
-			ResultSet rs = stat.executeQuery(query);
-			if (rs.next()) return true;
-			else{
-				return false;
-			}
-		} catch(SQLException e) {
-			System.out.println("Fail to query this player");
-		}
-		return false;
-	}
+	// public boolean existPlayer(int id){
+	// 	Statement stat;
+	// 	try{
+	// 		stat = connection.createStatement();
+	// 		String query = "SELECT * FROM Player WHERE rid=%d";
+	// 		query = String.format(query, id);
+	// 		ResultSet rs = stat.executeQuery(query);
+	// 		if (rs.next()) return true;
+	// 		else{
+	// 			return false;
+	// 		}
+	// 	} catch(SQLException e) {
+	// 		System.out.println("Fail to query this player");
+	// 	}
+	// 	return false;
+	// }
 
 
 	public int getMembersCount(int gid) {
@@ -191,7 +184,16 @@ public class Assignment2 {
 
 
 	public boolean deleteGuild(String guildName) {
-		throw new RuntimeException("Function Not Implemented");
+		try{
+			Statement stat = connection.createStatement();
+			String query = "DELETE FROM Guild WHERE guildname = %s";
+			query = String.format(query, guildName);
+			stat.executeUpdate(query);
+			return true;
+		} catch (Exception e){
+			e.getStackTrace();
+			return false;
+		}
 	}
 
 
