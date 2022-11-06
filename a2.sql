@@ -29,7 +29,9 @@ INSERT INTO Query7
 INSERT INTO Query8
 
 -- Query 9 --------------------------------------------------
-INSERT INTO Query9
+INSERT INTO Query9(
+    
+)
 
 -- Query 10 --------------------------------------------------
 INSERT INTO Query10(
