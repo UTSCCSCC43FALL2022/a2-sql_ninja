@@ -192,14 +192,151 @@ END
 FROM GuildSize;
 
 -- Query 7 --------------------------------------------------
-INSERT INTO Query7 (SELECT * FROM Player);
+INSERT INTO Query7
+SELECT Player.country_code AS country_code, (sum(PlayerRating.month)/count(PlayerRating.month)) AS player_retention
+FROM Player JOIN PlayerRating
+WHERE Player.id = PlayerRating.p_id AND PlayerRating.month <> 0
+GROUP BY Player.country_code
+ORDER BY player_retention DESC;
 
 -- Query 8 --------------------------------------------------
-INSERT INTO Query8 (SELECT * FROM Player);
+CREATE TABLE TempTable(
+    p_id INTEGER,
+    playername VARCHAR,
+    player_wr REAL,
+    g_id INTEGER,
+    guildname VARCHAR,
+    tag VARCHAR(5),
+    guild_aggregate_wr REAL
+);
+
+INSERT INTO TempTable
+SELECT Player.id as p_id,
+    Player.playername as playername,
+    (Player.wins/Player.total_battles) as player_wr,
+    Player.guild as g_id,
+    Guild.guildname as guildname,
+    Guild.tag as tag,
+    (SELECT (SUM(wins)/SUM(total_battles))
+    FROM Player as P
+    WHERE P.guild = Player.guild) as guild_aggregate_wr
+FROM Player JOIN Guild
+WHERE Player.guild IS NOT NULL AND Player.guild = Guild.id;
+
+INSERT INTO TempTable(p_id,playername, player_wr)
+SELECT Player.id as p_id,
+    Player.playername as playername,
+    (Player.wins/Player.total_battles) as player_wr,
+FROM Player
+WHERE Player.guild IS NULL;
+
+INSERT INTO Query8
+SELECT *
+FROM TempTable
+ORDER BY player_wr DESC, guild_aggregate_wr DESC;
+
+DROP TABLE TempTable;
 
 -- Query 9 --------------------------------------------------
-INSERT INTO Query9 (SELECT * FROM Player);
+CREATE TABLE Final(
+    g_id INTEGER,
+    guildname VARCHAR,
+    monthly_rating INTEGER,
+    all_time_rating INTEGER,
+    country_pcount INTEGER,
+    total_pcount INTEGER,
+    country_code CHAR(3)
+);
+
+CREATE TABLE Leading10 (
+    g_id INTEGER,
+    guildname VARCHAR UNIQUE NOT NULL,
+    monthly_rating INTEGER NOT NULL,
+    all_time_rating INTEGER NOT NULL,
+);
+
+CREATE TABLE CounTolal (
+    g_id INTEGER,
+    total_pcount INTEGER
+);
+
+CREATE TABLE AllCtyCount(
+    g_id INTEGER,
+    c INTEGER,
+    country_code CHAR(3)
+)
+
+CREATE TABLE CountMax (
+    g_id INTEGER,
+    country_pcount INTEGER,
+    country_code CHAR(3)
+);
+
+INSERT INTO Leading10
+SELECT g_id, guildname, monthly_rating, all_time_rating
+FROM Guild JOIN(
+    SELECT TOP 10 DISTINCT g_id, monthly_rating, all_time_rating
+    FROM  GuildRatings
+    ORDER BY all_time_rating DESC, monthly_rating DESC, g_id ASC
+)
+WHERE Guild.id = g_id;
+
+INSERT INTO CounTolal
+SELECT Player.guild AS g_id,
+    COUNT(Player.id) AS total_pcount
+FROM Player JOIN Leading10
+WHERE Player.guild = Leading10.g_id
+GROUP BY Leading10.gid;
+
+INSERT INTO AllCtyCount
+SELECT COUNT(Player.country_code) AS c, 
+    Player.country_code as country_code,
+    Leading10.g_id as g_id
+FROM Player JOIN Leading10
+WHERE Player.guild = Leading10.g_id
+GROUP BY Player.guild, Player.country_code;
+
+INSERT INTO CountMax
+SELECT AllCtyCount.c as country_pcount,
+    AllCtyCount.g_id as g_id,
+    AllCtyCount.country_code as country_code
+FROM AllCtyCount
+WHERE AllCtyCount.c = (
+    SELECT MAX(c) as max_c
+    FROM AllCtyCount
+);
+
+INSERT INTO Final
+SELECT Leading10.g_id as g_id,
+    Leading10.guildname as guildname,
+    Leading10.monthly_rating as monthly_rating,
+    Leading10.all_time_rating as all_time_rating,
+    CountMax.country_pcount as country_pcount,
+    CounTolal.total_pcount as total_pcount,
+    CountMax.country_code as country_code
+FROM CountMax JOIN CounTolal JOIN Leading10
+WHERE CountMax.g_id = CounTolal.g_id = Leading10.gid;
+
+INSERT INTO Query9
+SELECT *
+FROM Final
+ORDER BY all_time_rating DESC, monthly_rating DESC, g_id ASC;
+
+DROP TABLE Final;
+DROP TABLE Leading10;
+DROP TABLE CounTolal;
+DROP TABLE AllCtyCount;
+DROP TABLE CountMax;
+
 
 -- Query 10 --------------------------------------------------
-INSERT INTO Query10 (SELECT * FROM Player);
+INSERT INTO Query10
+SELECT g_id, guildname, avg_veteranness
+FROM Player, Guild, (
+    SELECT p_id, SUM(month) avg_veteranness
+    FROM PlayerRating
+    GROUP BY p_id
+)AS Average
+WHERE Average.p_id = Player.id AND Player.guild = Guild.id
+ORDER BY avg_veteranness DESC, g_id ASC;
 
