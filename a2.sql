@@ -58,6 +58,13 @@ Case
     ELSE '--'
 END;
 
+DROP VIEW IF EXISTS Class3 CASCADE;
+DROP VIEW IF EXISTS CountRarity5Lilmon CASCADE;
+DROP VIEW IF EXISTS Hoarder CASCADE; 
+DROP VIEW IF EXISTS Lucky CASCADE; 
+DROP VIEW IF EXISTS Whale CASCADE;
+DROP VIEW IF EXISTS CountActive CASCADE;
+
 -- Query 2 --------------------------------------------------
 CREATE VIEW DistinctPair1 AS
 SELECT p_id, l_id, element1
@@ -70,23 +77,28 @@ FROM Lilmon JOIN LilmonInventory ON Lilmon.id = LilmonInventory.l_id
 WHERE LilmonInventory.in_team = true AND LilmonInventory.fav = true;
 
 CREATE VIEW countElement1 AS
-SELECT element1, count(*) AS count1
+SELECT element1 AS element, count(*) AS count1
 FROM (SELECT DISTINCT * FROM DistinctPair1) AS Uniq1
 GROUP BY element1;
 
 CREATE VIEW countElement2 AS
-SELECT element2, count(*) AS count2
+SELECT element2 AS element, count(*) AS count2
 FROM (SELECT DISTINCT * FROM DistinctPair2) AS Uniq2
 GROUP BY element2;
 
-INSERT INTO Query2 (SELECT element, count1+count2 AS popularity_count FROM (countElement1 JOIN countELement2 ON countElement1.element1 = countElement2.element2) ORDER BY popularity_count DESC);
+INSERT INTO Query2 (SELECT countElement1.element, count1+count2 AS popularity_count FROM (countElement1 JOIN countELement2 ON countElement1.element = countElement2.element) ORDER BY popularity_count DESC);
 
--- Query 3 --------------------------------------------------
--- CREATE VIEW CountActive AS
--- SELECT p_id, count(monthly_rating)
--- FROM PlayerRatings
--- WHERE monthly_rating > 0
--- GROUP BY p_id;
+DROP VIEW IF EXISTS countElement1 CASCADE;
+DROP VIEW IF EXISTS countElement2 CASCADE;
+DROP VIEW IF EXISTS DistinctPair1 CASCADE;
+DROP VIEW IF EXISTS DistinctPair2 CASCADE;
+
+--Query 3 --------------------------------------------------
+CREATE VIEW CountActive AS
+SELECT p_id, count(monthly_rating)
+FROM PlayerRatings
+WHERE monthly_rating > 0
+GROUP BY p_id;
 
 CREATE VIEW PlayerActive AS
 SELECT *
@@ -102,6 +114,10 @@ FROM PlayerActive;
 
 INSERT INTO Query3 (SELECT avg(monthlyIG) AS avg_ig_per_month_per_player FROM PlayerAverage);
 
+DROP VIEW IF EXISTS CountActive CASCADE;
+DROP VIEW IF EXISTS PlayerActive CASCADE;
+DROP VIEW IF EXISTS PlayerAverage CASCADE;
+
 -- Query 4 --------------------------------------------------
 CREATE VIEW CountPopularity AS
 SELECT l_id, count(DISTINCT p_id) AS popularity_count
@@ -111,12 +127,14 @@ GROUP BY l_id;
 
 INSERT INTO Query4 (SELECT l_id, name, rarity, popularity_count FROM (CountPopularity JOIN Lilmon ON CountPopularity.l_id = Lilmon.id) ORDER BY popularity_count DESC, rarity DESC, id DESC);
 
+DROP VIEW IF EXISTS CountPopularity CASCADE;
+
 -- Query 5 --------------------------------------------------
 
 CREATE VIEW LateYear AS
 SELECT p_id, month, year, max(year) AS maxYear
 FROM PlayerRatings
-GROUP BY p_id;
+GROUP BY p_id, month, year;
 
 CREATE VIEW RecentYear AS
 SELECT p_id, month, year, maxYear
@@ -126,17 +144,17 @@ WHERE year = maxYear;
 CREATE VIEW RecentMonth AS
 SELECT p_id, maxYear, max(month) AS maxMonth
 FROM RecentYear
-GROUP BY p_id;
+GROUP BY p_id, maxYear;
 
 CREATE VIEW Last6Month AS
-SELECT p_id, month, year, monthly_rating, all_time_rating
-FROM RecentYear CROSS JOIN PlayerRatings
-WHERE (RecentYear.p_id = PlayerRatings.p_id) AND ((year = maxYear AND maxMonth-month < 6) OR (year = maxYear-1 AND month-maxMonth < 8));
+SELECT PlayerRatings.p_id, month, year, monthly_rating, all_time_rating
+FROM RecentMonth CROSS JOIN PlayerRatings
+WHERE (RecentMonth.p_id = PlayerRatings.p_id) AND ((year = maxYear AND maxMonth-month < 6) OR (year = maxYear-1 AND month-maxMonth < 8));
 
 Create VIEW RatePlayer AS
-SELECT p_id, playername, email, min(monthly_rating) AS min_mr, max(monthly_rating) AS max_mr
+SELECT Last6Month.p_id, playername, email, all_time_rating, min(monthly_rating) AS min_mr, max(monthly_rating) AS max_mr
 FROM Last6Month JOIN Player ON Last6Month.p_id = Player.id
-GROUP BY p_id;
+GROUP BY p_id, playername, email, all_time_rating;
 
 Create VIEW WellPlayer AS
 SELECT p_id, playername, email, min_mr, max_mr
@@ -145,11 +163,18 @@ WHERE max_mr - min_mr <= 50 AND all_time_rating >=2000;
 
 INSERT INTO Query5 (SELECT p_id, playername, email, min_mr, max_mr FROM WellPlayer ORDER BY max_mr DESC, min_mr DESC, p_id ASC);
 
+DROP VIEW IF EXISTS LateYear CASCADE;
+DROP VIEW IF EXISTS RecentYear CASCADE;
+DROP VIEW IF EXISTS RecentMonth CASCADE;
+DROP VIEW IF EXISTS Last6Month CASCADE;
+DROP VIEW IF EXISTS RatePlayer CASCADE;
+DROP VIEW IF EXISTS WellPlayer CASCADE;
+
 -- Query 6 --------------------------------------------------
 CREATE VIEW TimeYear AS
 SELECT g_id, month, year, all_time_rating, max(year) AS maxYear
 FROM GuildRatings
-GROUP BY g_id;
+GROUP BY g_id, month, year, all_time_rating;
 
 CREATE VIEW LatestYear AS
 SELECT g_id, month, year, all_time_rating, maxYear
@@ -158,8 +183,8 @@ WHERE year = maxYear;
 
 CREATE VIEW TimeMonth AS
 SELECT g_id, month, year, all_time_rating, max(month) AS maxMonth
-FROM LatestMonth
-GROUP BY g_id;
+FROM LatestYear
+GROUP BY g_id, month, year, all_time_rating;
 
 CREATE VIEW LatestMonth AS
 SELECT g_id, month, year, all_time_rating, maxMonth
@@ -168,13 +193,13 @@ WHERE month = maxMonth;
 
 CREATE VIEW GuildSize AS
 SELECT guild as g_id, guildname, tag, leader, all_time_rating, count(DISTINCT Player.id) AS sizeNum
-FROM (Player JOIN LatestMonth ON Player.g_id = LatestMonth.g_id AS Result) JOIN Guild ON Guild.id = Result.g_id
-GROUP BY g_id;
+FROM (Player JOIN LatestMonth ON Player.guild = LatestMonth.g_id) JOIN Guild ON Guild.id = LatestMonth.g_id
+GROUP BY guild, guildname, tag, leader, all_time_rating;
 
 INSERT INTO Query6 (SELECT g_id, guildname, tag, leader AS leader_id, playername AS leader_name, country_code AS leader_country FROM GuildSize JOIN Player ON GuildSize.leader = Player.id ORDER BY g_id ASC);
 
 UPDATE Query6
-SET Query6.size = 
+SET size = 
 CASE 
     WHEN GuildSize.sizeNum >=500 THEN 'large'
 
@@ -182,7 +207,10 @@ CASE
 
     ELSE 'small'
 END
-SET Query6.classification = 
+FROM GuildSize;
+
+UPDATE Query6
+SET classification = 
 CASE 
     WHEN (Query6.size = 'large' AND GuildSize.all_time_rating >= 2000) OR (Query6.size = 'medium' AND GuildSize.all_time_rating >= 1750) OR (Query6.size = 'small' AND GuildSize.all_time_rating >= 1500) THEN 'elite'
     WHEN (Query6.size = 'large' AND GuildSize.all_time_rating < 2000 AND GuildSize.all_time_rating >= 1500) OR (Query6.size = 'medium' AND GuildSize.all_time_rating < 1750 AND GuildSize.all_time_rating >= 1250) OR (Query6.size = 'small' AND GuildSize.all_time_rating < 1500 AND GuildSize.all_time_rating >= 1000) THEN 'average'
@@ -191,152 +219,158 @@ CASE
 END
 FROM GuildSize;
 
--- Query 7 --------------------------------------------------
-INSERT INTO Query7
-SELECT Player.country_code AS country_code, (sum(PlayerRating.month)/count(PlayerRating.month)) AS player_retention
-FROM Player JOIN PlayerRating
-WHERE Player.id = PlayerRating.p_id AND PlayerRating.month <> 0
-GROUP BY Player.country_code
-ORDER BY player_retention DESC;
+DROP VIEW IF EXISTS TimeYear CASCADE;
+DROP VIEW IF EXISTS LatestYear CASCADE;
+DROP VIEW IF EXISTS TimeMonth CASCADE;
+DROP VIEW IF EXISTS LatestMonth CASCADE;
+DROP VIEW IF EXISTS GuildSize CASCADE;
 
--- Query 8 --------------------------------------------------
-CREATE TABLE TempTable(
-    p_id INTEGER,
-    playername VARCHAR,
-    player_wr REAL,
-    g_id INTEGER,
-    guildname VARCHAR,
-    tag VARCHAR(5),
-    guild_aggregate_wr REAL
-);
+-- -- Query 7 --------------------------------------------------
+-- INSERT INTO Query7
+-- SELECT Player.country_code AS country_code, (sum(PlayerRating.month)/count(PlayerRating.month)) AS player_retention
+-- FROM Player JOIN PlayerRating
+-- WHERE Player.id = PlayerRating.p_id AND PlayerRating.month <> 0
+-- GROUP BY Player.country_code
+-- ORDER BY player_retention DESC;
 
-INSERT INTO TempTable
-SELECT Player.id as p_id,
-    Player.playername as playername,
-    (Player.wins/Player.total_battles) as player_wr,
-    Player.guild as g_id,
-    Guild.guildname as guildname,
-    Guild.tag as tag,
-    (SELECT (SUM(wins)/SUM(total_battles))
-    FROM Player as P
-    WHERE P.guild = Player.guild) as guild_aggregate_wr
-FROM Player JOIN Guild
-WHERE Player.guild IS NOT NULL AND Player.guild = Guild.id;
+-- -- Query 8 --------------------------------------------------
+-- CREATE TABLE TempTable(
+--     p_id INTEGER,
+--     playername VARCHAR,
+--     player_wr REAL,
+--     g_id INTEGER,
+--     guildname VARCHAR,
+--     tag VARCHAR(5),
+--     guild_aggregate_wr REAL
+-- );
 
-INSERT INTO TempTable(p_id,playername, player_wr)
-SELECT Player.id as p_id,
-    Player.playername as playername,
-    (Player.wins/Player.total_battles) as player_wr,
-FROM Player
-WHERE Player.guild IS NULL;
+-- INSERT INTO TempTable
+-- SELECT Player.id as p_id,
+--     Player.playername as playername,
+--     (Player.wins/Player.total_battles) as player_wr,
+--     Player.guild as g_id,
+--     Guild.guildname as guildname,
+--     Guild.tag as tag,
+--     (SELECT (SUM(wins)/SUM(total_battles))
+--     FROM Player as P
+--     WHERE P.guild = Player.guild) as guild_aggregate_wr
+-- FROM Player JOIN Guild
+-- WHERE Player.guild IS NOT NULL AND Player.guild = Guild.id;
 
-INSERT INTO Query8
-SELECT *
-FROM TempTable
-ORDER BY player_wr DESC, guild_aggregate_wr DESC;
+-- INSERT INTO TempTable(p_id,playername, player_wr)
+-- SELECT Player.id as p_id,
+--     Player.playername as playername,
+--     (Player.wins/Player.total_battles) as player_wr,
+-- FROM Player
+-- WHERE Player.guild IS NULL;
 
-DROP TABLE TempTable;
+-- INSERT INTO Query8
+-- SELECT *
+-- FROM TempTable
+-- ORDER BY player_wr DESC, guild_aggregate_wr DESC;
 
--- Query 9 --------------------------------------------------
-CREATE TABLE Final(
-    g_id INTEGER,
-    guildname VARCHAR,
-    monthly_rating INTEGER,
-    all_time_rating INTEGER,
-    country_pcount INTEGER,
-    total_pcount INTEGER,
-    country_code CHAR(3)
-);
+-- DROP TABLE TempTable;
 
-CREATE TABLE Leading10 (
-    g_id INTEGER,
-    guildname VARCHAR UNIQUE NOT NULL,
-    monthly_rating INTEGER NOT NULL,
-    all_time_rating INTEGER NOT NULL,
-);
+-- -- Query 9 --------------------------------------------------
+-- CREATE TABLE Final(
+--     g_id INTEGER,
+--     guildname VARCHAR,
+--     monthly_rating INTEGER,
+--     all_time_rating INTEGER,
+--     country_pcount INTEGER,
+--     total_pcount INTEGER,
+--     country_code CHAR(3)
+-- );
 
-CREATE TABLE CounTolal (
-    g_id INTEGER,
-    total_pcount INTEGER
-);
+-- CREATE TABLE Leading10 (
+--     g_id INTEGER,
+--     guildname VARCHAR UNIQUE NOT NULL,
+--     monthly_rating INTEGER NOT NULL,
+--     all_time_rating INTEGER NOT NULL,
+-- );
 
-CREATE TABLE AllCtyCount(
-    g_id INTEGER,
-    c INTEGER,
-    country_code CHAR(3)
-)
+-- CREATE TABLE CounTolal (
+--     g_id INTEGER,
+--     total_pcount INTEGER
+-- );
 
-CREATE TABLE CountMax (
-    g_id INTEGER,
-    country_pcount INTEGER,
-    country_code CHAR(3)
-);
+-- CREATE TABLE AllCtyCount(
+--     g_id INTEGER,
+--     c INTEGER,
+--     country_code CHAR(3)
+-- )
 
-INSERT INTO Leading10
-SELECT g_id, guildname, monthly_rating, all_time_rating
-FROM Guild JOIN(
-    SELECT TOP 10 DISTINCT g_id, monthly_rating, all_time_rating
-    FROM  GuildRatings
-    ORDER BY all_time_rating DESC, monthly_rating DESC, g_id ASC
-)
-WHERE Guild.id = g_id;
+-- CREATE TABLE CountMax (
+--     g_id INTEGER,
+--     country_pcount INTEGER,
+--     country_code CHAR(3)
+-- );
 
-INSERT INTO CounTolal
-SELECT Player.guild AS g_id,
-    COUNT(Player.id) AS total_pcount
-FROM Player JOIN Leading10
-WHERE Player.guild = Leading10.g_id
-GROUP BY Leading10.gid;
+-- INSERT INTO Leading10
+-- SELECT g_id, guildname, monthly_rating, all_time_rating
+-- FROM Guild JOIN(
+--     SELECT TOP 10 DISTINCT g_id, monthly_rating, all_time_rating
+--     FROM  GuildRatings
+--     ORDER BY all_time_rating DESC, monthly_rating DESC, g_id ASC
+-- )
+-- WHERE Guild.id = g_id;
 
-INSERT INTO AllCtyCount
-SELECT COUNT(Player.country_code) AS c, 
-    Player.country_code as country_code,
-    Leading10.g_id as g_id
-FROM Player JOIN Leading10
-WHERE Player.guild = Leading10.g_id
-GROUP BY Player.guild, Player.country_code;
+-- INSERT INTO CounTolal
+-- SELECT Player.guild AS g_id,
+--     COUNT(Player.id) AS total_pcount
+-- FROM Player JOIN Leading10
+-- WHERE Player.guild = Leading10.g_id
+-- GROUP BY Leading10.gid;
 
-INSERT INTO CountMax
-SELECT AllCtyCount.c as country_pcount,
-    AllCtyCount.g_id as g_id,
-    AllCtyCount.country_code as country_code
-FROM AllCtyCount
-WHERE AllCtyCount.c = (
-    SELECT MAX(c) as max_c
-    FROM AllCtyCount
-);
+-- INSERT INTO AllCtyCount
+-- SELECT COUNT(Player.country_code) AS c, 
+--     Player.country_code as country_code,
+--     Leading10.g_id as g_id
+-- FROM Player JOIN Leading10
+-- WHERE Player.guild = Leading10.g_id
+-- GROUP BY Player.guild, Player.country_code;
 
-INSERT INTO Final
-SELECT Leading10.g_id as g_id,
-    Leading10.guildname as guildname,
-    Leading10.monthly_rating as monthly_rating,
-    Leading10.all_time_rating as all_time_rating,
-    CountMax.country_pcount as country_pcount,
-    CounTolal.total_pcount as total_pcount,
-    CountMax.country_code as country_code
-FROM CountMax JOIN CounTolal JOIN Leading10
-WHERE CountMax.g_id = CounTolal.g_id = Leading10.gid;
+-- INSERT INTO CountMax
+-- SELECT AllCtyCount.c as country_pcount,
+--     AllCtyCount.g_id as g_id,
+--     AllCtyCount.country_code as country_code
+-- FROM AllCtyCount
+-- WHERE AllCtyCount.c = (
+--     SELECT MAX(c) as max_c
+--     FROM AllCtyCount
+-- );
 
-INSERT INTO Query9
-SELECT *
-FROM Final
-ORDER BY all_time_rating DESC, monthly_rating DESC, g_id ASC;
+-- INSERT INTO Final
+-- SELECT Leading10.g_id as g_id,
+--     Leading10.guildname as guildname,
+--     Leading10.monthly_rating as monthly_rating,
+--     Leading10.all_time_rating as all_time_rating,
+--     CountMax.country_pcount as country_pcount,
+--     CounTolal.total_pcount as total_pcount,
+--     CountMax.country_code as country_code
+-- FROM CountMax JOIN CounTolal JOIN Leading10
+-- WHERE CountMax.g_id = CounTolal.g_id = Leading10.gid;
 
-DROP TABLE Final;
-DROP TABLE Leading10;
-DROP TABLE CounTolal;
-DROP TABLE AllCtyCount;
-DROP TABLE CountMax;
+-- INSERT INTO Query9
+-- SELECT *
+-- FROM Final
+-- ORDER BY all_time_rating DESC, monthly_rating DESC, g_id ASC;
+
+-- DROP TABLE Final;
+-- DROP TABLE Leading10;
+-- DROP TABLE CounTolal;
+-- DROP TABLE AllCtyCount;
+-- DROP TABLE CountMax;
 
 
--- Query 10 --------------------------------------------------
-INSERT INTO Query10
-SELECT g_id, guildname, avg_veteranness
-FROM Player, Guild, (
-    SELECT p_id, SUM(month) avg_veteranness
-    FROM PlayerRating
-    GROUP BY p_id
-)AS Average
-WHERE Average.p_id = Player.id AND Player.guild = Guild.id
-ORDER BY avg_veteranness DESC, g_id ASC;
+-- -- Query 10 --------------------------------------------------
+-- INSERT INTO Query10
+-- SELECT g_id, guildname, avg_veteranness
+-- FROM Player, Guild, (
+--     SELECT p_id, SUM(month) avg_veteranness
+--     FROM PlayerRating
+--     GROUP BY p_id
+-- )AS Average
+-- WHERE Average.p_id = Player.id AND Player.guild = Guild.id
+-- ORDER BY avg_veteranness DESC, g_id ASC;
 
