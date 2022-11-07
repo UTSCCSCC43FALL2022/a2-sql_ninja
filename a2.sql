@@ -24,9 +24,25 @@ INSERT INTO Query6
 
 -- Query 7 --------------------------------------------------
 INSERT INTO Query7
+SELECT Player.country_code as country_code,
+    (SUM(PlayerRating.month)/COUNT(PlayerRating.month)) as player_retention
+FROM Player JOIN PlayerRating
+WHERE Player.id = PlayerRating.p_id AND PlayerRating.month <> 0
+GROUP BY Player.country_code
+ORDER BY player_retention DESC;
 
 -- Query 8 --------------------------------------------------
-INSERT INTO Query8
+CREATE TABLE Result(
+    p_id INTEGER,
+    playername VARCHAR,
+    player_wr REAL,
+    g_id INTEGER,
+    guildname VARCHAR,
+    tag VARCHAR(5),
+    guild_aggregate_wr REAL
+);
+
+INSERT INTO Result
 SELECT Player.id as p_id,
     Player.playername as playername,
     (Player.wins/Player.total_battles) as player_wr,
@@ -39,13 +55,19 @@ SELECT Player.id as p_id,
 FROM Player JOIN Guild
 WHERE Player.guild IS NOT NULL AND Player.guild = Guild.id;
 
-INSERT INTO Query8(p_id,playername, player_wr)
+INSERT INTO Result(p_id,playername, player_wr)
 SELECT Player.id as p_id,
     Player.playername as playername,
     (Player.wins/Player.total_battles) as player_wr,
 FROM Player
 WHERE Player.guild IS NULL;
 
+INSERT INTO Query8
+SELECT *
+FROM Result
+ORDER BY player_wr DESC, guild_aggregate_wr DESC;
+
+DROP TABLE Result;
 -- Query 9 --------------------------------------------------
 INSERT INTO Query9
 SELECT *
