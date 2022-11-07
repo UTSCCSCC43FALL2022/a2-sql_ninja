@@ -42,8 +42,57 @@ public class Assignment2 {
 
 
 	public boolean insertPlayer(int id, String playerName, String email, String countryCode) {
-		return true;
+		// check country code's format, must be 3 uppercase characters
+		if (countryCode.length() != 3 || !countryCode.equals(countryCode.toUpperCase())) return false;
+		// check if there already exists same playe's name, email, or countrycode
+		try{
+			PreparedStatement stat = connection.prepareStatement("SELECT * FROM a2.Player WHERE id = ? " +
+			"OR playername = ? OR  email = ?");
+			stat.setInt(1, id);
+			stat.setString(2, playerName);
+			stat.setString(3, email);
+			ResultSet rs = stat.executeQuery();
+			rs.close();
+			stat.close();
+			if (rs.next()) return false;
+		} catch (SQLException e){
+			e.getStackTrace();
+		}
+		try{
+			Statement st;
+			//Create a Statement for executing SQL queries
+			st = connection.createStatement(); 
+			String query = "INSERT INTO Player " +
+                "(id, playername, emial, country_code) " +
+                "VALUES " +
+                "(%d, '%s', '%s', '%s')";
+        	query = String.format(query, id, playerName, email, countryCode);
+       		st.executeUpdate(query);
+        	System.out.println("++ inserted user: " + playerName);
+			return true;
+		} catch (SQLException e) {
+			System.out.println("Inert Execution failed!");
+		}
+		return false;
 	}
+
+
+	// public boolean existPlayer(int id){
+	// 	Statement stat;
+	// 	try{
+	// 		stat = connection.createStatement();
+	// 		String query = "SELECT * FROM Player WHERE rid=%d";
+	// 		query = String.format(query, id);
+	// 		ResultSet rs = stat.executeQuery(query);
+	// 		if (rs.next()) return true;
+	// 		else{
+	// 			return false;
+	// 		}
+	// 	} catch(SQLException e) {
+	// 		System.out.println("Fail to query this player");
+	// 	}
+	// 	return false;
+	// }
 
 
 	public int getMembersCount(int gid) {
@@ -65,7 +114,35 @@ public class Assignment2 {
 
 
 	public String getPlayerInfo(int id) {
-		return null;
+		//“id: playername: email: countrycode: coins: rolls: wins: losses: total_battles: guild”
+		String res = "%d:%s:%s:%s:%d:%d:%d:%d:%d:%d";
+		try{
+			Statement stat = connection.createStatement();
+			String query = "SELECT * FROM Player WHERE rid=%d";
+			query = String.format(query, id);
+			ResultSet rs = stat.executeQuery(query);
+			// check if cannot find this player
+			if (!rs.next()) return "";
+			String[] r = new String[3];
+            r[0] = rs.getString("playername");
+            r[1] = rs.getString("email");
+            r[2] = rs.getString("country_code");
+			int num[] = new int[7];
+			num[0] = rs.getInt("id");
+			num[1] = rs.getInt("coins");
+			num[2] = rs.getInt("rolls");
+			num[3] = rs.getInt("wins");
+			num[4] = rs.getInt("losses");
+			num[5] = rs.getInt("total_battles");
+			num[6] = rs.getInt("guild");
+			res = String.format(res, num[0], r[0], r[1], r[2], num[1], num[2], num[3], num[4], num[5], num[6]);
+			rs.close();
+			stat.close();
+			return res;
+		} catch (SQLException exception) {
+			System.out.println("Fail to find this player's info");
+			return "";
+		}
 	}
 
 
@@ -211,6 +288,45 @@ public class Assignment2 {
 
 
 	public boolean createSquidTable() {
+		try{
+			Statement stat = connection.createStatement();
+			
 
+			stat.executeUpdate(
+				"CREATE TABLE SQUID_GAME(" +
+				"id INTEGER PRIMARY KEY," +
+				"playername VARCHAR UNIQUE NOT NULL," +
+				"email VARCHAR UNIQUE NOT NULL," +
+				"coins INTEGER NOT NULL DEFAULT 0," +
+				"rolls INTEGER NOT NULL DEFAULT 0," +
+				"wins INTEGER NOT NULL DEFAULT 0," +
+				"losses INTEGER NOT NULL DEFAULT 0," +
+				"total_battles INTEGER NOT NULL DEFAULT 0"
+			); 
+			stat.executeUpdate(
+				"INSERT INTO SQUID_GAME" +
+				"SELECT id, playername, email, coins, rolls, wins, losses, total_battles"+
+				"FROM Player" +
+				"WHERE country_code = KOR and guild = (SELECT id FROM Guid WHERE guidname = 'Squid Game')"
+			);
+			stat.close();
+			return true;
+		} catch (SQLException e){
+			e.getStackTrace();
+			return false;
+		}
+
+	}
+	
+	
+	public boolean deleteSquidTable() {
+		try {
+			Statement st = connection.createStatement();
+			st.executeUpdate("DROP VIEW Players");
+			return true;
+		} catch (SQLException e) {
+			System.out.println("DeleteSquidTable unsuccessful: " + e);
+			return false;
+		}
 	}
 }
