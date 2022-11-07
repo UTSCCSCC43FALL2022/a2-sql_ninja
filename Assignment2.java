@@ -1,7 +1,5 @@
 import java.sql.*;
 
-import javax.swing.plaf.synth.SynthIcon;
-
 public class Assignment2 {
 
 
@@ -48,7 +46,7 @@ public class Assignment2 {
 		if (countryCode.length() != 3 || !countryCode.equals(countryCode.toUpperCase())) return false;
 		// check if there already exists same playe's name, email, or countrycode
 		try{
-			PreparedStatement stat = connection.prepareStatement("ELECT * FROM a2.Player WHERE id = ? " +
+			PreparedStatement stat = connection.prepareStatement("SELECT * FROM a2.Player WHERE id = ? " +
 			"OR playername = ? OR  email = ?");
 			stat.setInt(1, id);
 			stat.setString(2, playerName);
@@ -122,7 +120,6 @@ public class Assignment2 {
 			Statement stat = connection.createStatement();
 			String query = "SELECT * FROM Player WHERE rid=%d";
 			query = String.format(query, id);
-
 			ResultSet rs = stat.executeQuery(query);
 			// check if cannot find this player
 			if (!rs.next()) return "";
@@ -139,6 +136,8 @@ public class Assignment2 {
 			num[5] = rs.getInt("total_battles");
 			num[6] = rs.getInt("guild");
 			res = String.format(res, num[0], r[0], r[1], r[2], num[1], num[2], num[3], num[4], num[5], num[6]);
+			rs.close();
+			stat.close();
 			return res;
 		} catch (SQLException exception) {
 			System.out.println("Fail to find this player's info");
@@ -156,6 +155,7 @@ public class Assignment2 {
 			String query = "UPDATE Guild SET guildname = %s WHERE guildname = '%s'";
 			query = String.format(query, newName, oldName);
 			stat.executeUpdate(query);
+			stat.close();
 			return true;
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -198,21 +198,101 @@ public class Assignment2 {
 
 
 	public String listAllTimePlayerRatings() {
-		throw new RuntimeException("Function Not Implemented");
+		String res = "";
+		try{
+			Statement stat = connection.createStatement();
+			stat.executeUpdate(
+					"CREATE TEMP VIEW PR AS " +
+					"SELECT * " +
+					"FROM a2.PlayerRatings " +
+					"WHERE PlayerRatings.year IN (SELECT year AS yeara " +
+					"FROM a2.PlayerRatings WHERE year NOT IN (SELECT A.year " +
+					"FROM a2.PlayerRatings AS A CROSS JOIN a2.PlayerRatings AS B " +
+					"WHERE A.year < B.year)); ");
+
+			ResultSet rs = stat.executeQuery(
+					"SELECT playername, all_time_rating " +
+					"FROM a2.PlayerRatings INNER JOIN a2.Player " +
+					"ON PlayerRatings.p_id = Player.id " +
+					"WHERE month IN " +
+					"(SELECT month " +
+					"FROM PR WHERE month NOT IN  " +
+					"(SELECT C.month " +
+					"FROM (SELECT PR.month as month " +
+					"FROM PR CROSS JOIN PR AS PR1 " +
+					"WHERE PR.month < PR1.month) AS C)) " +
+					"ORDER BY all_time_rating DESC; ");
+			while(rs.next()){
+				res += rs.getString(1);
+				res += ":";
+				res += rs.getString(2);
+				res += ":";
+			}
+			if (res.isEmpty()) {
+				rs.close(); 
+				stat.close(); 
+				return "";
+			}
+			rs.close(); 
+			stat.close();
+			res = res.substring(0,res.length() - 1);
+			return res;
+		} catch (SQLException e){
+			e.getStackTrace();
+			return "";
+		}
+		
 	}
 
 
 	public boolean updateMonthlyRatings() {
-		throw new RuntimeException("Function Not Implemented");
+		try {
+			PreparedStatement stat = connection.prepareStatement("");
+			return true;
+		} catch (SQLException e) {
+			System.out.println("UpdateMonthlyRatings unsuccessful: " + e);
+//			e.printStackTrace();
+			return false;
+		}
 	}
 
 
 	public boolean createSquidTable() {
-		throw new RuntimeException("Function Not Implemented");
+		try{
+			Statement stat = connection.createStatement();
+			
+
+			String query = 
+					"CREATE TABLE SQUID_GAME"
+					"SELECT id, playername, email, coins, rolls, wins, losses, total_battles " +
+					"FROM Player " +
+					"WHERE country_code = 'KOR' and " +
+					"guild = (SELECT id FROM Guild WHERE guildname = 'Squid Game') "
+					
+					;
+			
+			
+			ResultSet rs = stat.executeQuery(	
+			rs.close(); 
+			stat.close();
+			return true;
+		} catch (SQLException e){
+			e.getStackTrace();
+			return false;
+		}
+
+
 	}
 	
 	
 	public boolean deleteSquidTable() {
-		throw new RuntimeException("Function Not Implemented");
+		try {
+			Statement st = connection.createStatement();
+			st.executeUpdate("DROP VIEW Players");
+			return true;
+		} catch (SQLException e) {
+			System.out.println("DeleteSquidTable unsuccessful: " + e);
+			return false;
+		}
 	}
 }
