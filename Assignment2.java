@@ -247,11 +247,41 @@ public class Assignment2 {
 
 	public boolean updateMonthlyRatings() {
 		try {
-			PreparedStatement stat = connection.prepareStatement("");
-			return true;
+			Statement st = connection.createStatement();
+			st.executeUpdate(
+					"CREATE TEMP VIEW Players AS " +
+							"SELECT * " +
+							"FROM a2.PlayerRatings " +
+							"WHERE PlayerRatings.year = '2022' AND PlayerRatings.month = '9'; ");
+			st.executeUpdate(
+					"CREATE TEMP VIEW Guilds AS " +
+							"SELECT * " +
+							"FROM a2.GuildRatings " +
+							"WHERE GuildRatings.year = '2022' AND GuildRatings.month = '9'; ");
+			int num = st.executeUpdate(
+					"INSERT INTO a2.PlayerRatings (p_id, month, year, monthly_rating, all_time_rating) " +
+							"SELECT p_id, 10 AS month, 2022 AS year, monthly_rating*1.1 AS monthly_rating, all_time_rating*1.1 AS all_time_rating " +
+							"FROM Players; " +
+							" " +
+							"INSERT INTO a2.PlayerRatings (p_id, month, year, monthly_rating, all_time_rating) " +
+							"SELECT Player.id AS p_id, 10 AS month, 2022 AS year, 1000 AS monthly_rating, 1000 AS all_time_rating " +
+							"FROM a2.Player " +
+							"WHERE Player.id NOT IN (SELECT p_id FROM Players); " +
+							" " +
+							"INSERT INTO a2.GuildRatings (g_id, month, year, monthly_rating, all_time_rating) " +
+							"SELECT g_id, 10 AS month, 2022 AS year, monthly_rating*1.1 AS monthly_rating, all_time_rating*1.1 AS all_time_rating " +
+							"FROM Guilds; " +
+							" " +
+							"INSERT INTO a2.GuildRatings (g_id, month, year, monthly_rating, all_time_rating) " +
+							"SELECT Guild.id AS g_id, 10 AS month, 2022 AS year, 1000 AS monthly_rating, 1000 AS all_time_rating " +
+							"FROM a2.Guild " +
+							"WHERE Guild.id NOT IN (SELECT g_id FROM Guilds); ");
+			st.executeUpdate("DROP VIEW Players");
+			st.executeUpdate("DROP VIEW Guilds");
+			st.close();
+			return num >= 1;
 		} catch (SQLException e) {
 			System.out.println("UpdateMonthlyRatings unsuccessful: " + e);
-//			e.printStackTrace();
 			return false;
 		}
 	}
@@ -262,25 +292,29 @@ public class Assignment2 {
 			Statement stat = connection.createStatement();
 			
 
-			String query = 
-					"CREATE TABLE SQUID_GAME"
-					"SELECT id, playername, email, coins, rolls, wins, losses, total_battles " +
-					"FROM Player " +
-					"WHERE country_code = 'KOR' and " +
-					"guild = (SELECT id FROM Guild WHERE guildname = 'Squid Game') "
-					
-					;
-			
-			
-			ResultSet rs = stat.executeQuery(	
-			rs.close(); 
+			stat.executeUpdate(
+				"CREATE TABLE SQUID_GAME(" +
+				"id INTEGER PRIMARY KEY," +
+				"playername VARCHAR UNIQUE NOT NULL," +
+				"email VARCHAR UNIQUE NOT NULL," +
+				"coins INTEGER NOT NULL DEFAULT 0," +
+				"rolls INTEGER NOT NULL DEFAULT 0," +
+				"wins INTEGER NOT NULL DEFAULT 0," +
+				"losses INTEGER NOT NULL DEFAULT 0," +
+				"total_battles INTEGER NOT NULL DEFAULT 0"
+			); 
+			stat.executeUpdate(
+				"INSERT INTO SQUID_GAME" +
+				"SELECT id, playername, email, coins, rolls, wins, losses, total_battles"+
+				"FROM Player" +
+				"WHERE country_code = KOR and guild = (SELECT id FROM Guid WHERE guidname = 'Squid Game')"
+			);
 			stat.close();
 			return true;
 		} catch (SQLException e){
 			e.getStackTrace();
 			return false;
 		}
-
 
 	}
 	
