@@ -70,91 +70,112 @@ ORDER BY player_wr DESC, guild_aggregate_wr DESC;
 DROP TABLE Result;
 -- Query 9 --------------------------------------------------
 INSERT INTO Query9
-SELECT *
-FROM(
-    CREATE TABLE Top_10 (
-        g_id INTEGER NOT NULL REFERENCES Guild(id) ON DELETE RESTRICT,
-        guildname VARCHAR UNIQUE NOT NULL,
-        monthly_rating INTEGER NOT NULL,
-        all_time_rating INTEGER NOT NULL,
-    );
 
-    INSERT INTO Top_10
-    SELECT g_id, guildname, monthly_rating, all_time_rating
-    FROM Guild JOIN(
-        SELECT TOP 10 DISTINCT g_id, monthly_rating, all_time_rating
-        FROM  GuildRatings
-        ORDER BY all_time_rating DESC, monthly_rating DESC, g_id ASC
-    )
-    WHERE Guild.id = g_id;
+CREATE TABLE Result(
+    g_id INTEGER,
+    guildname VARCHAR,
+    monthly_rating INTEGER,
+    all_time_rating INTEGER,
+    country_pcount INTEGER,
+    total_pcount INTEGER,
+    country_code CHAR(3)
+);
 
-    CREATE TABLE Result (
-        g_id INTEGER NOT NULL,
-        guildname VARCHAR UNIQUE NOT NULL,
-        monthly_rating INTEGER NOT NULL,
-        all_time_rating INTEGER NOT NULL,
-        country_pcount INTEGER NOT NULL,
-        total_pcount INTEGER NOT NULL,
-        country_code CHAR(3) NOT NULL,
-    );
+CREATE TABLE Top_10 (
+    g_id INTEGER,
+    guildname VARCHAR UNIQUE NOT NULL,
+    monthly_rating INTEGER NOT NULL,
+    all_time_rating INTEGER NOT NULL,
+);
 
-    DECLARE @Counter INTEGER 
-    SET @Counter=1
-    WHILE ( @Counter <= 10)
-    BEGIN
-        DECLARE @gid INTEGER 
-        SET @gid = (
-            SELECT TOP 1 g_id FROM Top_10;
-        )
+CREATE TABLE Total_count (
+    g_id INTEGER,
+    total_pcount INTEGER
+);
 
-        CREATE VIEW All_country_count AS
-        SELECT COUNT(*) AS c, country_code, gid
-        FROM Player
-        WHERE Player.guild = @gid
-        GROUP BY country_code;
+CREATE TABLE Max_count (
+    g_id INTEGER,
+    country_pcount INTEGER,
+    country_code CHAR(3)
+);
 
-        CREATE VIEW Max_count AS
-        SELECT gid, c, country_code
-        FROM All_country_count JOIN (
-            SELECT MAX(c) as max_c, country_code, gid, c
-            FROM All_country_count
-        )Max_count_num
-        WHERE c = max_c AND All_country_count.gid = Max_count_num.gid;
-
-        CREATE VIEW Total_count AS
-        SELECT COUNT(*) AS total_c, gid
-        FROM Player
-        WHERE Player.guild = @gid;
-
-        INSERT INTO Result
-        SELECT DISTINCT Total_count.gid as g_id, 
-            Top_10.guildname as guildname, 
-            Top_10.monthly_rating as monthly_rating,
-            Top_10.all_time_rating as all_time_rating,
-            Max_count.c as country_pcount,
-            Total_count.total_c as total_pcount,
-            Max_count.country_code as country_code
-        FROM Total_count JOIN Max_count JOIN Top_10
-        WHERE Total_count.gid = Max_count.gid = Top_10.g_id
-
-        DELETE FROM Top_10 WHERE Top_10.g_id = @gid
-        DROP VIEW All_country_count
-        DROP VIEW Max_count
-        DROP VIEW Total_count
-        SET @Counter  = @Counter  + 1
-    END
-
-    DROP TABLE Top_10;
-
-    SELECT *
-    FROM Result
-    ORDER BY all_time_rating DESC,
-        monthly_rating DESC,
-        g_id ASC
-    ;
-
-    DROP TABLE Result;
+INSERT INTO Top_10
+SELECT g_id, guildname, monthly_rating, all_time_rating
+FROM Guild JOIN(
+    SELECT TOP 10 DISTINCT g_id, monthly_rating, all_time_rating
+    FROM  GuildRatings
+    ORDER BY all_time_rating DESC, monthly_rating DESC, g_id ASC
 )
+WHERE Guild.id = g_id;
+
+INSERT INTO Total_count
+SELECT Player.guild AS g_id,
+    COUNT(Player.id) AS total_pcount
+FROM Player JOIN Top_10
+WHERE Player.guild = Top_10.g_id
+GROUP BY Top_10.gid;
+
+CREATE VIEW All_country_count AS
+SELECT COUNT(*) AS c, 
+    Player.country_code as country_code,
+    Top_10.g_id as g_id
+FROM Player JOIN Top_10
+WHERE Player.guild = Top_10.g_id
+GROUP BY Player.country_code;
+
+DECLARE @Counter INTEGER 
+SET @Counter=1
+WHILE ( @Counter <= 10)
+BEGIN
+    DECLARE @gid INTEGER 
+    SET @gid = (
+        SELECT TOP 1 g_id FROM Top_10;
+    )
+
+    CREATE VIEW All_country_count AS
+    SELECT COUNT(*) AS c, country_code, gid
+    FROM Player
+    WHERE Player.guild = Top_10.g_id
+    GROUP BY country_code;
+
+    CREATE VIEW Max_count AS
+    SELECT gid, c, country_code
+    FROM All_country_count JOIN (
+        SELECT MAX(c) as max_c, country_code, gid, c
+        FROM All_country_count
+    )Max_count_num
+    WHERE c = max_c AND All_country_count.gid = Max_count_num.gid;
+
+
+    INSERT INTO Result
+    SELECT DISTINCT Total_count.gid as g_id, 
+        Top_10.guildname as guildname, 
+        Top_10.monthly_rating as monthly_rating,
+        Top_10.all_time_rating as all_time_rating,
+        Max_count.c as country_pcount,
+        Total_count.total_c as total_pcount,
+        Max_count.country_code as country_code
+    FROM Total_count JOIN Max_count JOIN Top_10
+    WHERE Total_count.gid = Max_count.gid = Top_10.g_id
+
+    DELETE FROM Top_10 WHERE Top_10.g_id = @gid
+    DROP VIEW All_country_count
+    DROP VIEW Max_count
+    DROP VIEW Total_count
+    SET @Counter  = @Counter  + 1
+END
+
+DROP TABLE Top_10;
+
+SELECT *
+FROM Result
+ORDER BY all_time_rating DESC,
+    monthly_rating DESC,
+    g_id ASC
+;
+
+DROP TABLE Result;
+
 
 -- Query 10 --------------------------------------------------
 INSERT INTO Query10
