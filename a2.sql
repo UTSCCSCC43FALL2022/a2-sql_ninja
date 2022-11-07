@@ -82,33 +82,25 @@ GROUP BY element2;
 INSERT INTO Query2 (SELECT element, count1+count2 AS popularity_count FROM (countElement1 JOIN countELement2 ON countElement1.element1 = countElement2.element2) ORDER BY popularity_count DESC);
 
 -- Query 3 --------------------------------------------------
--- CREATE VIEW CountActive AS
--- SELECT p_id, count(monthly_rating)
--- FROM PlayerRatings
--- WHERE monthly_rating > 0
--- GROUP BY p_id;
+INSERT INTO Query3
+CREATE VIEW CA AS
+SELECT p_id, count(monthly_rating)
+FROM PlayerRatings
+WHERE monthly_rating > 0
+GROUP BY p_id;
 
 CREATE VIEW PlayerActive AS
 SELECT *
-FROM CountActive RIGHT JOIN Player ON CountActive.p_id = Player.id;
+FROM CA RIGHT JOIN Player ON CA.p_id = Player.id;
 
--- UPDATE PlayerActive
--- SET count = 1
--- WHERE count = NULL;
-
-CREATE VIEW PlayerAverage AS
-SELECT p_id, (total_battles-losses-wins)/count AS monthlyIG
-FROM PlayerActive;
-
-INSERT INTO Query3 (SELECT avg(monthlyIG) AS avg_ig_per_month_per_player FROM PlayerAverage);
 
 -- Query 4 --------------------------------------------------
-CREATE VIEW CountPopularity AS
+INSERT INTO Query4
+CREATE VIEW CP AS
 SELECT l_id, count(DISTINCT p_id) AS popularity_count
 FROM LilmonInventory
 WHERE in_team = true AND fav = true
 GROUP BY l_id;
-
 INSERT INTO Query4 (SELECT l_id, name, rarity, popularity_count FROM (CountPopularity JOIN Lilmon ON CountPopularity.l_id = Lilmon.id) ORDER BY popularity_count DESC, rarity DESC, id DESC);
 
 -- Query 5 --------------------------------------------------
@@ -145,7 +137,40 @@ WHERE max_mr - min_mr <= 50 AND all_time_rating >=2000;
 
 INSERT INTO Query5 (SELECT p_id, playername, email, min_mr, max_mr FROM WellPlayer ORDER BY max_mr DESC, min_mr DESC, p_id ASC);
 
+CREATE VIEW LateYear AS
+SELECT p_id, month, year, max(year) AS maxYear
+FROM PlayerRatings
+GROUP BY p_id;
+
+CREATE VIEW RecentYear AS
+SELECT p_id, month, year, maxYear
+FROM LateYear
+WHERE year = maxYear;
+
+CREATE VIEW RecentMonth AS
+SELECT p_id, maxYear, max(month) AS maxMonth
+FROM RecentYear
+GROUP BY p_id;
+
+CREATE VIEW Last6Month AS
+SELECT p_id, month, year, monthly_rating, all_time_rating
+FROM RecentYear CROSS JOIN PlayerRatings
+WHERE (RecentYear.p_id = PlayerRatings.p_id) AND ((year = maxYear AND maxMonth-month < 6) OR (year = maxYear-1 AND month-maxMonth < 8));
+
+Create VIEW RatePlayer AS
+SELECT p_id, playername, email, min(monthly_rating) AS min_mr, max(monthly_rating) AS max_mr
+FROM Last6Month JOIN Player ON Last6Month.p_id = Player.id
+GROUP BY p_id;
+
+Create VIEW WellPlayer AS
+SELECT p_id, playername, email, min_mr, max_mr
+FROM RatePlayer
+WHERE max_mr - min_mr <= 50 AND all_time_rating >=2000;
+
+INSERT INTO Query5 (SELECT p_id, playername, email, min_mr, max_mr FROM WellPlayer ORDER BY max_mr DESC, min_mr DESC, p_id ASC);
+
 -- Query 6 --------------------------------------------------
+INSERT INTO Query6
 CREATE VIEW TimeYear AS
 SELECT g_id, month, year, all_time_rating, max(year) AS maxYear
 FROM GuildRatings
@@ -190,10 +215,10 @@ CASE
     ELSE 'new'
 END
 FROM GuildSize;
-
 -- Query 7 --------------------------------------------------
 INSERT INTO Query7
-SELECT Player.country_code AS country_code, (sum(PlayerRating.month)/count(PlayerRating.month)) AS player_retention
+SELECT Player.country_code as country_code,
+    (SUM(PlayerRating.month)/COUNT(PlayerRating.month)) as player_retention
 FROM Player JOIN PlayerRating
 WHERE Player.id = PlayerRating.p_id AND PlayerRating.month <> 0
 GROUP BY Player.country_code
