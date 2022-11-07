@@ -27,6 +27,24 @@ INSERT INTO Query7
 
 -- Query 8 --------------------------------------------------
 INSERT INTO Query8
+SELECT Player.id as p_id,
+    Player.playername as playername,
+    (Player.wins/Player.total_battles) as player_wr,
+    Player.guild as g_id,
+    Guild.guildname as guildname,
+    Guild.tag as tag,
+    (SELECT (SUM(wins)/SUM(total_battles))
+    FROM Player as P
+    WHERE P.guild = Player.guild) as guild_aggregate_wr
+FROM Player JOIN Guild
+WHERE Player.guild IS NOT NULL AND Player.guild = Guild.id;
+
+INSERT INTO Query8(p_id,playername, player_wr)
+SELECT Player.id as p_id,
+    Player.playername as playername,
+    (Player.wins/Player.total_battles) as player_wr,
+FROM Player
+WHERE Player.guild IS NULL;
 
 -- Query 9 --------------------------------------------------
 INSERT INTO Query9
