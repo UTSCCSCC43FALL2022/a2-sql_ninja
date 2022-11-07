@@ -29,7 +29,9 @@ INSERT INTO Query7
 INSERT INTO Query8
 
 -- Query 9 --------------------------------------------------
-INSERT INTO Query9(
+INSERT INTO Query9
+SELECT *
+FROM(
     CREATE TABLE Top_10 (
         g_id INTEGER NOT NULL REFERENCES Guild(id) ON DELETE RESTRICT,
         guildname VARCHAR UNIQUE NOT NULL,
@@ -115,14 +117,14 @@ INSERT INTO Query9(
 )
 
 -- Query 10 --------------------------------------------------
-INSERT INTO Query10(
-    SELECT g_id, guildname, avg_veteranness
-    FROM Player, Guild, (
-        SELECT p_id, SUM(month) avg_veteranness
-        FROM PlayerRating
-        GROUP BY p_id
-    )AS Average
-    WHERE Average.p_id = Player.id AND Player.guild = Guild.id
-    ORDER BY avg_veteranness DESC, g_id ASC
-)
+INSERT INTO Query10
+SELECT g_id, guildname, avg_veteranness
+FROM Player, Guild, (
+    SELECT p_id, SUM(month) avg_veteranness
+    FROM PlayerRating
+    GROUP BY p_id
+)AS Average
+WHERE Average.p_id = Player.id AND Player.guild = Guild.id
+ORDER BY avg_veteranness DESC, g_id ASC
+
 
