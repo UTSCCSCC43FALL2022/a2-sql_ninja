@@ -6,9 +6,12 @@ INSERT INTO Lilmon Values (02, 'MiaoWaZhongZi', 'Earth', 'Electric', 5);
 INSERT INTO Lilmon Values (03, 'JieNiGui', 'Water', 'Fire', 4);
 INSERT INTO Lilmon Values (04, 'MengHuan', 'Light', 'Water', 5);
 
+INSERT INTO Player Values (10, 'XiaoZhi', 'XiaoZhi@gmail.com', 'CHN', 30000, 700, 6, 10, 20);
 INSERT INTO Guild Values (123, 'Pokemon', 'ABCDE', 10);
 
-INSERT INTO Player Values (10, 'XiaoZhi', 'XiaoZhi@gmail.com', 'CHN', 30000, 700, 6, 10, 20, 123);
+UPDATE Player
+SET guild = 123;
+
 INSERT INTO Player Values (20, 'XiaoXia', 'XiaoXia@gmail.com', 'CHN', 40000, 600, 8, 10, 24, 123);
 INSERT INTO Player Values (30, 'XiaoMing', 'XiaoMing@gmail.com', 'CHN', 50000, 400, 5, 10, 15, 123);
 INSERT INTO Player Values (40, 'XiaoGang', 'XiaoGang@gmail.com', 'CHN', 10000, 300, 7, 10, 20, 123);
@@ -37,8 +40,8 @@ INSERT INTO PlayerRatings Values (56, 50, 6, 2020, 1000, 2000);
 INSERT INTO PlayerRatings Values (57, 50, 7, 2020, 2000, 2000);
 
 INSERT INTO GuildRatings Values (66, 123, 5, 2020, 2000, 2000);
-INSERT INTO GuildRatings Values (66, 123, 6, 2020, 1000, 1500);
-INSERT INTO GuildRatings Values (66, 123, 7, 2020, 2000, 2000);
+INSERT INTO GuildRatings Values (67, 123, 6, 2020, 1000, 1500);
+INSERT INTO GuildRatings Values (68, 123, 7, 2020, 2000, 2000);
 
 
 -- If you define any views for a question (you are encouraged to), you must drop them
