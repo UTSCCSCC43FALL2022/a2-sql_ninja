@@ -3,8 +3,8 @@ SET search_path TO A2;
 INSERT INTO Lilmon Values (00, 'Pikachu', 'Electric', 'Light', 3);
 INSERT INTO Lilmon Values (01, 'XiaoHuoLong', 'Fire', 'Earth', 5);
 INSERT INTO Lilmon Values (02, 'MiaoWaZhongZi', 'Earth', 'Electric', 5);
-INSERT INTO Lilmon Values (03, 'JieNiGui', 'Water', 'Fire', 4);
-INSERT INTO Lilmon Values (04, 'MengHuan', 'Light', 'Water', 5);
+INSERT INTO Lilmon Values (03, 'JieNiGui', 'Water', 'Air', 4);
+INSERT INTO Lilmon Values (04, 'MengHuan', 'Light', 'Ice', 5);
 
 INSERT INTO Player Values (10, 'XiaoZhi', 'XiaoZhi@gmail.com', 'CHN', 30000, 700, 6, 10, 20);
 INSERT INTO Guild Values (123, 'Pokemon', 'ABCDE', 10);
@@ -14,8 +14,8 @@ SET guild = 123;
 
 INSERT INTO Player Values (20, 'XiaoXia', 'XiaoXia@gmail.com', 'CHN', 40000, 600, 8, 10, 24, 123);
 INSERT INTO Player Values (30, 'XiaoMing', 'XiaoMing@gmail.com', 'CHN', 50000, 400, 5, 10, 15, 123);
-INSERT INTO Player Values (40, 'XiaoGang', 'XiaoGang@gmail.com', 'CHN', 10000, 300, 7, 10, 20, 123);
-INSERT INTO Player Values (50, 'XiaoHong', 'XiaoHong@gmail.com', 'CHN', 20000, 500, 6, 6, 20, 123);
+INSERT INTO Player Values (40, 'XiaoGang', 'XiaoGang@gmail.com', 'CHN', 10000, 200, 7, 10, 20, 123);
+INSERT INTO Player Values (50, 'XiaoHong', 'XiaoHong@gmail.com', 'CHN', 20000, 10, 6, 6, 20, 123);
 
 INSERT INTO LilmonInventory Values (06, 00, 10, true, true);
 INSERT INTO LilmonInventory Values (07, 01, 20, true, true);
@@ -58,15 +58,15 @@ GROUP BY p_id;
 CREATE VIEW Whale AS
 SELECT p_id, playername, email
 FROM CountActive JOIN Player ON CountActive.p_id = Player.id
-WHERE rolls/count >= 100;
+WHERE rolls/Cast(count AS FLOAT) >= 100;
 
 CREATE VIEW Hoarder AS
 SELECT p_id, playername, email
 FROM CountActive JOIN Player ON CountActive.p_id = Player.id
-WHERE coins/count >= 10000;
+WHERE coins/Cast(count AS FLOAT) >= 10000;
 
 CREATE VIEW CountRarity5Lilmon AS
-SELECT LilmonInventory.p_id, count(LilmonInventory.id)
+SELECT LilmonInventory.p_id, rarity, count(LilmonInventory.id)
 FROM LilmonInventory JOIN Lilmon ON LilmonInventory.p_id = Lilmon.id
 GROUP BY LilmonInventory.p_id, rarity
 HAVING rarity = 5;
@@ -75,19 +75,19 @@ HAVING rarity = 5;
 CREATE VIEW Lucky AS
 SELECT p_id, playername, email
 FROM CountRarity5Lilmon JOIN Player ON CountRarity5Lilmon.p_id = Player.id
-WHERE count/rolls >= 0.05;
+WHERE Cast(count AS FLOAT)/rolls >= 0.05;
 
-CREATE VIEW Class3 AS
-SELECT *
-FROM Whale
-UNION
-SELECT *
-FROM lucky
-UNION
-SELECT *
-FROM Hoarder;
+-- CREATE VIEW Class3 AS
+-- SELECT *
+-- FROM Whale
+-- UNION
+-- SELECT *
+-- FROM lucky
+-- UNION
+-- SELECT *
+-- FROM Hoarder;
 
-INSERT INTO Query1  (SELECT DISTINCT p_id, playername, email FROM Class3 ORDER BY p_id ASC);
+INSERT INTO Query1  (SELECT DISTINCT id AS p_id, playername, email FROM Player ORDER BY id ASC);
 
 UPDATE Query1
 SET classification =
@@ -99,10 +99,10 @@ Case
     WHEN (Query1.p_id NOT IN (SELECT p_id FROM Whale) AND Query1.p_id NOT IN (SELECT p_id FROM Lucky) AND Query1.p_id IN (SELECT p_id FROM Hoarder)) THEN '--hoarder'
     WHEN (Query1.p_id IN (SELECT p_id FROM Whale) AND Query1.p_id NOT IN (SELECT p_id FROM Lucky) AND Query1.p_id NOT IN (SELECT p_id FROM Hoarder)) THEN 'whale--'
     WHEN (Query1.p_id NOT IN (SELECT p_id FROM Whale) AND Query1.p_id IN (SELECT p_id FROM Lucky) AND Query1.p_id NOT IN (SELECT p_id FROM Hoarder)) THEN '-lucky-'
-    ELSE '--'
+    WHEN (Query1.p_id NOT IN (SELECT p_id FROM Whale) AND Query1.p_id NOT IN (SELECT p_id FROM Lucky) AND Query1.p_id NOT IN (SELECT p_id FROM Hoarder)) THEN '--'
 END;
 
-DROP VIEW IF EXISTS Class3 CASCADE;
+-- DROP VIEW IF EXISTS Class3 CASCADE;
 DROP VIEW IF EXISTS CountRarity5Lilmon CASCADE;
 DROP VIEW IF EXISTS Hoarder CASCADE; 
 DROP VIEW IF EXISTS Lucky CASCADE; 
@@ -153,7 +153,7 @@ FROM CountActive RIGHT JOIN Player ON CountActive.p_id = Player.id;
 -- WHERE count = NULL;
 
 CREATE VIEW PlayerAverage AS
-SELECT p_id, (total_battles-losses-wins)/count AS monthlyIG
+SELECT p_id, (total_battles-losses-wins)/Cast(count AS FLOAT) AS monthlyIG
 FROM PlayerActive;
 
 INSERT INTO Query3 (SELECT avg(monthlyIG) AS avg_ig_per_month_per_player FROM PlayerAverage);
@@ -259,7 +259,7 @@ CASE
     WHEN (Query6.size = 'large' AND GuildSize.all_time_rating >= 2000) OR (Query6.size = 'medium' AND GuildSize.all_time_rating >= 1750) OR (Query6.size = 'small' AND GuildSize.all_time_rating >= 1500) THEN 'elite'
     WHEN (Query6.size = 'large' AND GuildSize.all_time_rating < 2000 AND GuildSize.all_time_rating >= 1500) OR (Query6.size = 'medium' AND GuildSize.all_time_rating < 1750 AND GuildSize.all_time_rating >= 1250) OR (Query6.size = 'small' AND GuildSize.all_time_rating < 1500 AND GuildSize.all_time_rating >= 1000) THEN 'average'
     WHEN (Query6.size = 'large' AND GuildSize.all_time_rating < 1500) OR (Query6.size = 'medium' AND GuildSize.all_time_rating < 1250) OR (Query6.size = 'small' AND GuildSize.all_time_rating < 1000) THEN 'casual'
-    ELSE 'new'
+    WHEN (GuildSize.all_time_rating = NULL) THEN 'new'
 END
 FROM GuildSize;
 
