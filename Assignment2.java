@@ -17,11 +17,11 @@ public class Assignment2 {
 		   Class.forName("org.postgresql.Driver");
 		   connection = DriverManager.getConnection(URL, username, password);
 		   System.out.println("Connected to the PostgreSQL server successfully.");
-	   } catch (ClassNotFoundException e) {
+	    } catch (ClassNotFoundException e) {
 		   System.out.println("Include PostgreSQL JDBC Driver in your library path!");
 		   e.printStackTrace();
 		   return false;
-	   } catch (SQLException e) {
+		} catch (SQLException e) {
 			System.out.println("Connection Failed! Check output console");
             e.printStackTrace();
 			return false;
@@ -201,27 +201,28 @@ public class Assignment2 {
 		String res = "";
 		try{
 			Statement stat = connection.createStatement();
-			stat.executeUpdate(
-					"CREATE TEMP VIEW PR AS " +
-					"SELECT * " +
-					"FROM a2.PlayerRatings " +
-					"WHERE PlayerRatings.year IN (SELECT year AS yeara " +
-					"FROM a2.PlayerRatings WHERE year NOT IN (SELECT A.year " +
-					"FROM a2.PlayerRatings AS A CROSS JOIN a2.PlayerRatings AS B " +
-					"WHERE A.year < B.year)); ");
+			String query = "SELECT Player.playername as pname, allrating.all_time_rating as prating" +
+					"FROM Player,(" +
+					"    SELECT p_id, all_time_rating" +
+					"    FROM PlayerRatings" +
+					"    WHERE " +
+					"        year = (" +
+					"            SELECT MAX(year) as latest_year" +
+					"            FROM PlayerRatings" +
+					"            )" +
+					"        AND " +
+					"        month = (" +
+					"            SELECT MAX(month) as latest_month" +
+					"            FROM PlayerRatings" +
+					"            WHERE year = (" +
+					"                SELECT MAX(year)" +
+					"                FROM PlayerRatings" +
+					"            )" +
+					"        AND all_time_rating IS NOT NULL" +
+					"    ORDER BY all_time_rating DESC) allrating" +
+					"WHERE Player.id = allrating.p_id;";
 
-			ResultSet rs = stat.executeQuery(
-					"SELECT playername, all_time_rating " +
-					"FROM a2.PlayerRatings INNER JOIN a2.Player " +
-					"ON PlayerRatings.p_id = Player.id " +
-					"WHERE month IN " +
-					"(SELECT month " +
-					"FROM PR WHERE month NOT IN  " +
-					"(SELECT C.month " +
-					"FROM (SELECT PR.month as month " +
-					"FROM PR CROSS JOIN PR AS PR1 " +
-					"WHERE PR.month < PR1.month) AS C)) " +
-					"ORDER BY all_time_rating DESC; ");
+			ResultSet rs = stat.executeQuery(query);
 			while(rs.next()){
 				res += rs.getString(1);
 				res += ":";
@@ -249,37 +250,33 @@ public class Assignment2 {
 		try {
 			Statement st = connection.createStatement();
 			st.executeUpdate(
-					"CREATE TEMP VIEW Players AS " +
-							"SELECT * " +
-							"FROM a2.PlayerRatings " +
-							"WHERE PlayerRatings.year = '2022' AND PlayerRatings.month = '9'; ");
-			st.executeUpdate(
-					"CREATE TEMP VIEW Guilds AS " +
-							"SELECT * " +
-							"FROM a2.GuildRatings " +
-							"WHERE GuildRatings.year = '2022' AND GuildRatings.month = '9'; ");
-			int num = st.executeUpdate(
-					"INSERT INTO a2.PlayerRatings (p_id, month, year, monthly_rating, all_time_rating) " +
-							"SELECT p_id, 10 AS month, 2022 AS year, monthly_rating*1.1 AS monthly_rating, all_time_rating*1.1 AS all_time_rating " +
-							"FROM Players; " +
-							" " +
-							"INSERT INTO a2.PlayerRatings (p_id, month, year, monthly_rating, all_time_rating) " +
-							"SELECT Player.id AS p_id, 10 AS month, 2022 AS year, 1000 AS monthly_rating, 1000 AS all_time_rating " +
-							"FROM a2.Player " +
-							"WHERE Player.id NOT IN (SELECT p_id FROM Players); " +
-							" " +
-							"INSERT INTO a2.GuildRatings (g_id, month, year, monthly_rating, all_time_rating) " +
-							"SELECT g_id, 10 AS month, 2022 AS year, monthly_rating*1.1 AS monthly_rating, all_time_rating*1.1 AS all_time_rating " +
-							"FROM Guilds; " +
-							" " +
-							"INSERT INTO a2.GuildRatings (g_id, month, year, monthly_rating, all_time_rating) " +
-							"SELECT Guild.id AS g_id, 10 AS month, 2022 AS year, 1000 AS monthly_rating, 1000 AS all_time_rating " +
-							"FROM a2.Guild " +
-							"WHERE Guild.id NOT IN (SELECT g_id FROM Guilds); ");
-			st.executeUpdate("DROP VIEW Players");
-			st.executeUpdate("DROP VIEW Guilds");
+					"CREATE TABLE UpdateGuildRating(" +
+							"    g_id INTEGER ," +
+							"    month INTEGER NOT NULL," +
+							"    year INTEGER NOT NULL," +
+							"    monthly_rating INTEGER NOT NULL," +
+							"    all_time_rating INTEGER NOT NULL," +
+							"    CHECK (month BETWEEN 1 AND 12)" +
+							");" +
+							"INSERT INTO UpdateGuildRating " +
+							"SELECT g_id, month, year, monthly_rating, all_time_rating" +
+							"FROM GuildRatings" +
+							"WHERE ( month = 9 AND year = 2020);" +
+							"UPDATE UpdateGuildRating" +
+							"SET monthly_rating = 1000, " +
+							"    all_time_rating = 1000, " +
+							"    month = 10" +
+							"FROM UpdateGuildRating" +
+							"WHERE monthly_rating IS NULL;" +
+							"UPDATE UpdateGuildRating" +
+							"SET monthly_rating = monthly_rating*1.1, all_time_rating = all_time_rating*1.1, month = 10" +
+							"FROM UpdateGuildRating" +
+							"WHERE monthly_rating IS NOT NULL;" +
+							"INSERT INTO GuildRatings" +
+							"SELECT *" +
+							"FROM UpdateGuildRating;");
 			st.close();
-			return num >= 1;
+			return true;
 		} catch (SQLException e) {
 			System.out.println("UpdateMonthlyRatings unsuccessful: " + e);
 			return false;
