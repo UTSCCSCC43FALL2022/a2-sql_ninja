@@ -48,12 +48,7 @@ SET search_path TO A2;
 --     ELSE '--'
 -- END;
 
--- -- Query 2 --------------------------------------------------
--- CREATE VIEW DistinctPair1 AS
--- SELECT p_id, l_id, element1
--- FROM Lilmon JOIN LilmonInventory ON Lilmon.id = LilmonInventory.l_id
--- WHERE LilmonInventory.in_team = true AND LilmonInventory.fav = true;
-
+-- Query 2 --------------------------------------------------
 -- CREATE VIEW DistinctPair2 AS
 -- SELECT p_id, l_id, element2
 -- FROM Lilmon JOIN LilmonInventory ON Lilmon.id = LilmonInventory.l_id
@@ -121,7 +116,7 @@ SET search_path TO A2;
 
 -- INSERT INTO Query5 (SELECT p_id, playername, email, min_mr, max_mr FROM WellPlayer ORDER BY max_mr DESC, min_mr DESC, p_id ASC);
 
--- -- Query 6 --------------------------------------------------
+-- Query 6 --------------------------------------------------
 
 -- CREATE VIEW LatestMonth AS
 -- SELECT g_id, month, year, all_time_rating, maxMonth
@@ -140,7 +135,7 @@ SET search_path TO A2;
 -- CASE 
 --     WHEN GuildSize.sizeNum >=500 THEN 'large'
 
---     WHEN GuildSize.sizeNum >=100 AND GuildSize.sizeNum < 500 THEN 'medium'
+-- --     WHEN GuildSize.sizeNum >=100 AND GuildSize.sizeNum < 500 THEN 'medium'
 
 --     ELSE 'small'
 -- END
@@ -153,7 +148,7 @@ SET search_path TO A2;
 -- END
 -- FROM GuildSize;
 
--- Query 7 --------------------------------------------------good
+-- Query 7 --------------------------------------------------
 INSERT INTO Query7
 SELECT Player.country_code as country_code,
     (SUM(PlayerRatings.month)/COUNT(PlayerRatings.month)) as player_retention
