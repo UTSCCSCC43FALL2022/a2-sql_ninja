@@ -63,36 +63,18 @@ public class Assignment2 {
 			//Create a Statement for executing SQL queries
 			st = connection.createStatement(); 
 			String query = "INSERT INTO Player " +
-                "(id, playername, emial, country_code) " +
-                "VALUES " +
-                "(%d, '%s', '%s', '%s')";
-        	query = String.format(query, id, playerName, email, countryCode);
-       		st.executeUpdate(query);
-        	System.out.println("++ inserted user: " + playerName);
+				"(id, playername, emial, country_code) " +
+				"VALUES " +
+				"(%d, '%s', '%s', '%s')";
+			query = String.format(query, id, playerName, email, countryCode);
+				st.executeUpdate(query);
+			System.out.println("++ inserted user: " + playerName);
 			return true;
 		} catch (SQLException e) {
 			System.out.println("Inert Execution failed!");
 		}
 		return false;
 	}
-
-
-	// public boolean existPlayer(int id){
-	// 	Statement stat;
-	// 	try{
-	// 		stat = connection.createStatement();
-	// 		String query = "SELECT * FROM Player WHERE rid=%d";
-	// 		query = String.format(query, id);
-	// 		ResultSet rs = stat.executeQuery(query);
-	// 		if (rs.next()) return true;
-	// 		else{
-	// 			return false;
-	// 		}
-	// 	} catch(SQLException e) {
-	// 		System.out.println("Fail to query this player");
-	// 	}
-	// 	return false;
-	// }
 
 
 	public int getMembersCount(int gid) {
@@ -182,7 +164,6 @@ public class Assignment2 {
 		return false;
 	}
 
-
 	public boolean deleteGuild(String guildName) {
 		try{
 			Statement stat = connection.createStatement();
@@ -241,7 +222,6 @@ public class Assignment2 {
 			e.getStackTrace();
 			return "";
 		}
-		
 	}
 
 
@@ -307,15 +287,17 @@ public class Assignment2 {
 				"INSERT INTO SQUID_GAME" +
 				"SELECT id, playername, email, coins, rolls, wins, losses, total_battles"+
 				"FROM Player" +
-				"WHERE country_code = KOR and guild = (SELECT id FROM Guid WHERE guidname = 'Squid Game')"
+				"WHERE country_code "
+			
 			);
+					
+			
 			stat.close();
 			return true;
 		} catch (SQLException e){
 			e.getStackTrace();
 			return false;
 		}
-
 	}
 	
 	
