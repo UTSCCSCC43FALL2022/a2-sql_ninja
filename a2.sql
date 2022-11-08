@@ -174,11 +174,11 @@ INSERT INTO
 SELECT 
     Player.id as p_id,
     Player.playername as playername,
-    (Player.wins/Player.total_battles) as player_wr,
+    (Player.wins::decimal /Player.total_battles) as player_wr,
     Player.guild as g_id,
     Guild.guildname as guildname,
     Guild.tag as tag,
-    (SELECT (SUM(wins)/SUM(total_battles))
+    (SELECT (SUM(wins)::decimal/SUM(total_battles))
     FROM Player as P
     WHERE P.guild = Player.guild) as guild_aggregate_wr
 FROM Player, Guild
@@ -189,7 +189,7 @@ INSERT INTO
 SELECT
   Player.id as p_id,
   Player.playername as playername,
-  (Player.wins / Player.total_battles) as player_wr,
+  (Player.wins::decimal / Player.total_battles) as player_wr,
   Player.guild as g_id,
   NULL,
   NULL,
@@ -212,6 +212,9 @@ DROP TABLE IF EXISTS Result;
 DROP TABLE IF EXISTS totalcount;
 DROP TABLE IF EXISTS allcountrycount;
 DROP TABLE IF EXISTS maxcount;
+DROP TABLE IF EXISTS toptentemp;
+DROP TABLE IF EXISTS latesttime;
+DROP TABLE IF EXISTS latestyear;
 CREATE TABLE Result(
     g_id INTEGER,
     guildname VARCHAR(255),
@@ -224,7 +227,7 @@ CREATE TABLE Result(
 
 CREATE TABLE topten(
     g_id INTEGER,
-    guildname VARCHAR(255) UNIQUE NOT NULL,
+    guildname VARCHAR(255) NOT NULL,
     monthly_rating INTEGER NOT NULL,
     all_time_rating INTEGER NOT NULL
 );
@@ -246,24 +249,58 @@ CREATE TABLE maxcount(
     country_code CHAR(3)
 );
 
+CREATE TABLE toptentemp(
+    g_id INTEGER,
+    monthly_rating INTEGER,
+    all_time_rating INTEGER
+);
+
+CREATE TABLE latesttime(
+    latest_month INTEGER,
+    latest_year INTEGER
+);
+
+CREATE TABLE latestyear(
+    latest_year INTEGER
+);
+
+INSERT INTO latestyear
+SELECT DISTINCT MAX(year) as latest_year
+FROM PlayerRatings;
+
+INSERT INTO latesttime
+SELECT DISTINCT 
+    MAX(month) as latest_month, 
+    MAX(latestyear.latest_year) as latest_year
+FROM PlayerRatings, latestyear
+WHERE PlayerRatings.year = latestyear.latest_year;
+
+INSERT INTO toptentemp
+SELECT DISTINCT g_id, monthly_rating, all_time_rating
+FROM  GuildRatings, latesttime
+WHERE month = latesttime.latest_month AND year = latesttime.latest_year
+ORDER BY all_time_rating DESC, monthly_rating DESC, g_id ASC
+LIMIT 10;
+
 INSERT INTO topten
-SELECT temp.g_id, Guild.guildname, temp.monthly_rating, temp.all_time_rating
-FROM Guild, (
-    SELECT DISTINCT g_id, monthly_rating, all_time_rating
-    FROM  GuildRatings
-    ORDER BY all_time_rating DESC, monthly_rating DESC, g_id ASC
-    FETCH FIRST 10 ROWS ONLY)temp
-WHERE Guild.id = temp.g_id;
+SELECT DISTINCT 
+    toptentemp.g_id as g_id, 
+    Guild.guildname as guildname, 
+    toptentemp.monthly_rating as monthly_rating, 
+    toptentemp.all_time_rating as all_time_rating
+FROM Guild, toptentemp
+WHERE Guild.id = toptentemp.g_id;
 
 INSERT INTO totalcount
-SELECT topten.g_id AS g_id,
+SELECT DISTINCT 
+    topten.g_id AS g_id,
     COUNT(Player.id) AS total_pcount
 FROM Player, topten
 WHERE Player.guild = topten.g_id
 GROUP BY topten.g_id;
 
 INSERT INTO allcountrycount
-SELECT 
+SELECT DISTINCT
     Player.guild as g_id,
     COUNT(Player.country_code) AS c, 
     Player.country_code as country_code
@@ -272,8 +309,9 @@ WHERE Player.guild = topten.g_id
 GROUP BY Player.guild, Player.country_code;
 
 INSERT INTO maxcount
-SELECT allcountrycount.c as country_pcount,
+SELECT DISTINCT
     allcountrycount.g_id as g_id,
+    allcountrycount.c as country_pcount,
     allcountrycount.country_code as country_code
 FROM allcountrycount
 WHERE allcountrycount.c = (
@@ -282,7 +320,8 @@ WHERE allcountrycount.c = (
 );
 
 INSERT INTO Result
-SELECT topten.g_id as g_id,
+SELECT DISTINCT
+    topten.g_id as g_id,
     topten.guildname as guildname,
     topten.monthly_rating as monthly_rating,
     topten.all_time_rating as all_time_rating,
@@ -297,17 +336,19 @@ SELECT *
 FROM Result
 ORDER BY all_time_rating DESC, monthly_rating DESC, g_id ASC;
 
-DROP TABLE Result;
-DROP TABLE topten;
-DROP TABLE totalcount;
-DROP TABLE allcountrycount;
-DROP TABLE maxcount;
+-- DROP TABLE Result;
+-- DROP TABLE topten;
+-- DROP TABLE totalcount;
+-- DROP TABLE allcountrycount;
+-- DROP TABLE maxcount;
+-- DROP TABLE toptentemp;
+-- DROP TABLE latesttime;
 
 -- Query 10 --------------------------------------------------good
 INSERT INTO Query10
-SELECT Guild.id as g_id, guildname, avg_veteranness
+SELECT DISTINCT Guild.id as g_id, guildname, avg_veteranness
 FROM Player, Guild, (
-    SELECT p_id, (COUNT(*)/12) as avg_veteranness
+    SELECT p_id, (COUNT(*)::decimal/12) as avg_veteranness
     FROM PlayerRatings
     GROUP BY p_id
 )AS Average
